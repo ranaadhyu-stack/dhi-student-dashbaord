@@ -15,8 +15,10 @@ import {
   Share2,
   FileBox,
   Mic,
+  FileText,
 } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
+import { FileSelectionModal, FileItem } from './learn/FileSelectionModal';
 
 interface ResearchHubProps {
   theme: 'light' | 'dark';
@@ -114,11 +116,11 @@ const subjects = [
 
 export function ResearchHub({ theme }: ResearchHubProps) {
   const [sessionActive, setSessionActive] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState('');
-  const [selectedChapter, setSelectedChapter] = useState('');
+  const [showFileModal, setShowFileModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [sessionId, setSessionId] = useState('');
   const [showEndModal, setShowEndModal] = useState(false);
-  
+
   const [leftPanelOpen, setLeftPanelOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<ChapterTopic | null>(null);
@@ -213,11 +215,12 @@ export function ResearchHub({ theme }: ResearchHubProps) {
   };
 
   const handleStartSession = () => {
+    if (!selectedFile) return;
     const newSessionId = generateSessionId();
     setSessionId(newSessionId);
     setSessionActive(true);
     // Don't auto-open panel - let user open it when ready
-    
+
     // Initialize with welcome message
     setChatMessages([
       {
@@ -250,8 +253,8 @@ export function ResearchHub({ theme }: ResearchHubProps) {
 
     // Reset all state
     setSessionActive(false);
-    setSelectedSubject('');
-    setSelectedChapter('');
+    // Keep selectedFile for convenience, or clear it if preferred
+    // setSelectedFile(null); 
     setSessionId('');
     setShowEndModal(false);
     setSelectedTopic(null);
@@ -325,7 +328,7 @@ export function ResearchHub({ theme }: ResearchHubProps) {
       diagram: selectedTopic.diagram,
     };
     setSavedTopics([...savedTopics, savedTopic]);
-    
+
     addNotification({
       title: 'Topic Saved',
       message: `"${selectedTopic.title}" has been saved to your collection.`,
@@ -341,10 +344,10 @@ export function ResearchHub({ theme }: ResearchHubProps) {
   const handleConfirmGenerateSummary = () => {
     setShowSummaryModal(false);
     setSummaryGenerated(true);
-    
+
     // Show success toast
     setShowSuccessToast(true);
-    
+
     // Auto-hide toast after 4 seconds
     setTimeout(() => {
       setShowSuccessToast(false);
@@ -352,27 +355,27 @@ export function ResearchHub({ theme }: ResearchHubProps) {
   };
 
   const getSelectedChapterName = () => {
-    const subject = subjects.find((s) => s.id === selectedSubject);
-    const chapter = subject?.chapters.find((c) => c.id === selectedChapter);
-    return chapter?.name || '';
+    return selectedFile?.name.replace('.pdf', '').replace('.docx', '') || '';
   };
 
-  const availableChapters = subjects.find((s) => s.id === selectedSubject)?.chapters || [];
-  const canStartSession = selectedSubject && selectedChapter;
+  const canStartSession = !!selectedFile;
+
+  const handleFileSelect = (file: FileItem) => {
+    setSelectedFile(file);
+    setShowFileModal(false);
+  };
 
   return (
     <div
-      className={`flex flex-col h-full relative overflow-hidden ${
-        theme === 'dark' ? 'bg-zinc-950' : 'bg-gray-50'
-      }`}
+      className={`flex flex-col h-full relative overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-gray-50'
+        }`}
     >
       {/* Header Bar - Only shown in Chapter Studio */}
       <div
-        className={`border-b px-6 py-4 flex items-center justify-between ${
-          theme === 'dark'
-            ? 'bg-zinc-900/95 border-zinc-800'
-            : 'bg-white/95 border-gray-200'
-        }`}
+        className={`border-b px-6 py-4 flex items-center justify-between ${theme === 'dark'
+          ? 'bg-zinc-900/95 border-zinc-800'
+          : 'bg-white/95 border-gray-200'
+          }`}
         style={{ backdropFilter: 'blur(10px)' }}
       >
         {/* Left - Session ID & Chapter Structure Button */}
@@ -381,23 +384,21 @@ export function ResearchHub({ theme }: ResearchHubProps) {
             <>
               <button
                 onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-                className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-all ${
-                  leftPanelOpen
-                    ? theme === 'dark'
-                      ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                      : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                    : theme === 'dark'
-                    ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-all ${leftPanelOpen
+                  ? theme === 'dark'
+                    ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                    : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                  : theme === 'dark'
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-500 animate-pulse'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700 animate-pulse'
+                  }`}
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 Chapter Structure
               </button>
               <span
-                className={`text-xs ${
-                  theme === 'dark' ? 'text-zinc-500' : 'text-gray-500'
-                }`}
+                className={`text-xs ${theme === 'dark' ? 'text-zinc-500' : 'text-gray-500'
+                  }`}
               >
                 Session ID: {sessionId}
               </span>
@@ -405,63 +406,54 @@ export function ResearchHub({ theme }: ResearchHubProps) {
           )}
         </div>
 
-        {/* Center - Dropdowns and Start Button */}
+        {/* Center - Open Lesson and Start Button */}
         <div className="flex items-center gap-3">
-          {/* Subject Dropdown */}
-          <select
-            value={selectedSubject}
-            onChange={(e) => {
-              setSelectedSubject(e.target.value);
-              setSelectedChapter('');
-            }}
-            disabled={sessionActive}
-            className={`px-4 py-2 rounded-lg border text-sm transition-all focus:outline-none focus:ring-2 ${
-              theme === 'dark'
-                ? 'bg-zinc-800 border-zinc-700 text-zinc-200 focus:ring-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed'
-                : 'bg-white border-gray-300 text-gray-900 focus:ring-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed'
-            }`}
-          >
-            <option value="">Select Subject</option>
-            {subjects.map((subject) => (
-              <option key={subject.id} value={subject.id}>
-                {subject.name}
-              </option>
-            ))}
-          </select>
+          {/* Selected File Display */}
+          {selectedFile && (
+            <div className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border ${theme === 'dark'
+              ? 'bg-zinc-800/50 border-zinc-700 text-zinc-300'
+              : 'bg-gray-50 border-gray-200 text-gray-700'
+              }`}>
+              <FileText className="w-4 h-4" />
+              <span className="truncate max-w-[200px]">{selectedFile.name}</span>
+              {!sessionActive && (
+                <button
+                  onClick={() => setSelectedFile(null)}
+                  className="ml-1 hover:text-red-500"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
 
-          {/* Chapter Dropdown */}
-          <select
-            value={selectedChapter}
-            onChange={(e) => setSelectedChapter(e.target.value)}
-            disabled={!selectedSubject || sessionActive}
-            className={`px-4 py-2 rounded-lg border text-sm transition-all focus:outline-none focus:ring-2 ${
-              theme === 'dark'
-                ? 'bg-zinc-800 border-zinc-700 text-zinc-200 focus:ring-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed'
-                : 'bg-white border-gray-300 text-gray-900 focus:ring-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed'
-            }`}
-          >
-            <option value="">Select Chapter</option>
-            {availableChapters.map((chapter) => (
-              <option key={chapter.id} value={chapter.id}>
-                {chapter.name}
-              </option>
-            ))}
-          </select>
+          {/* Open Lesson Button */}
+          {!sessionActive && !selectedFile && (
+            <button
+              onClick={() => setShowFileModal(true)}
+              className={`px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 ${theme === 'dark'
+                ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              Open Lesson
+            </button>
+          )}
 
           {/* Start Session Button */}
-          {!sessionActive && (
+          {!sessionActive && selectedFile && (
             <button
               onClick={handleStartSession}
               disabled={!canStartSession}
-              className={`px-6 py-2 rounded-lg text-sm transition-all ${
-                !canStartSession
-                  ? theme === 'dark'
-                    ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : theme === 'dark'
+              className={`px-6 py-2 rounded-lg text-sm transition-all ${!canStartSession
+                ? theme === 'dark'
+                  ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : theme === 'dark'
                   ? 'bg-emerald-600 text-white hover:bg-emerald-500'
                   : 'bg-emerald-600 text-white hover:bg-emerald-700'
-              }`}
+                }`}
             >
               Start Session
             </button>
@@ -476,19 +468,18 @@ export function ResearchHub({ theme }: ResearchHubProps) {
               <button
                 onClick={handleGenerateSummaryClick}
                 disabled={savedTopics.length === 0 || summaryGenerated}
-                className={`px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 ${
-                  summaryGenerated
-                    ? theme === 'dark'
-                      ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
-                      : 'bg-emerald-50 text-emerald-600 cursor-default'
-                    : savedTopics.length === 0
+                className={`px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 ${summaryGenerated
+                  ? theme === 'dark'
+                    ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
+                    : 'bg-emerald-50 text-emerald-600 cursor-default'
+                  : savedTopics.length === 0
                     ? theme === 'dark'
                       ? 'bg-zinc-800/50 text-zinc-600 cursor-not-allowed opacity-50'
                       : 'bg-gray-100/50 text-gray-400 cursor-not-allowed opacity-50'
                     : theme === 'dark'
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                }`}
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  }`}
               >
                 {summaryGenerated ? (
                   <>
@@ -506,11 +497,10 @@ export function ResearchHub({ theme }: ResearchHubProps) {
               {/* End Session Button */}
               <button
                 onClick={handleEndSessionClick}
-                className={`px-4 py-2 rounded-lg text-sm transition-all ${
-                  theme === 'dark'
-                    ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm transition-all ${theme === 'dark'
+                  ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30 hover:text-red-300 border border-red-600/20'
+                  : 'bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border border-red-200'
+                  }`}
               >
                 End Session
               </button>
@@ -526,23 +516,20 @@ export function ResearchHub({ theme }: ResearchHubProps) {
           style={{ backdropFilter: 'blur(4px)' }}
         >
           <div
-            className={`w-full max-w-md mx-4 rounded-xl p-6 ${
-              theme === 'dark'
-                ? 'bg-zinc-900 border border-zinc-800'
-                : 'bg-white border border-gray-200'
-            }`}
+            className={`w-full max-w-md mx-4 rounded-xl p-6 ${theme === 'dark'
+              ? 'bg-zinc-900 border border-zinc-800'
+              : 'bg-white border border-gray-200'
+              }`}
           >
             <h3
-              className={`text-lg mb-3 ${
-                theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'
-              }`}
+              className={`text-lg mb-3 ${theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'
+                }`}
             >
               End Session?
             </h3>
             <p
-              className={`text-sm mb-6 ${
-                theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'
-              }`}
+              className={`text-sm mb-6 ${theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'
+                }`}
             >
               Are you sure you want to end this session? Your unsaved notes will not be
               included in the final summary.
@@ -550,21 +537,19 @@ export function ResearchHub({ theme }: ResearchHubProps) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowEndModal(false)}
-                className={`px-4 py-2 rounded-lg text-sm transition-all ${
-                  theme === 'dark'
-                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm transition-all ${theme === 'dark'
+                  ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmEndSession}
-                className={`px-4 py-2 rounded-lg text-sm transition-all ${
-                  theme === 'dark'
-                    ? 'bg-red-600 text-white hover:bg-red-500'
-                    : 'bg-red-600 text-white hover:bg-red-700'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm transition-all ${theme === 'dark'
+                  ? 'bg-red-600 text-white hover:bg-red-500'
+                  : 'bg-red-600 text-white hover:bg-red-700'
+                  }`}
               >
                 End Session
               </button>
@@ -576,20 +561,17 @@ export function ResearchHub({ theme }: ResearchHubProps) {
       {/* Left Panel - Chapter Breakdown */}
       {sessionActive && (
         <div
-          className={`absolute top-[73px] left-0 bottom-0 w-80 z-40 transition-all duration-500 ease-out ${
-            leftPanelOpen ? 'translate-x-0' : '-translate-x-full'
-          } ${
-            theme === 'dark'
+          className={`absolute top-[73px] left-0 bottom-0 w-80 z-40 transition-all duration-500 ease-out ${leftPanelOpen ? 'translate-x-0' : '-translate-x-full'
+            } ${theme === 'dark'
               ? 'bg-zinc-900 border-r border-zinc-800'
               : 'bg-white border-r border-gray-200'
-          }`}
+            }`}
         >
           <div className="flex flex-col h-full">
             {/* Header */}
             <div
-              className={`flex items-center justify-between p-4 border-b ${
-                theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'
-              }`}
+              className={`flex items-center justify-between p-4 border-b ${theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'
+                }`}
             >
               <div className="flex items-center gap-2">
                 <BookOpen
@@ -601,9 +583,8 @@ export function ResearchHub({ theme }: ResearchHubProps) {
               </div>
               <button
                 onClick={() => setLeftPanelOpen(false)}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
-                }`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+                  }`}
               >
                 <X className={`w-4 h-4 ${theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'}`} />
               </button>
@@ -616,9 +597,6 @@ export function ResearchHub({ theme }: ResearchHubProps) {
               <h2 className={`text-lg ${theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'}`}>
                 {getSelectedChapterName()}
               </h2>
-              <p className={`text-sm ${theme === 'dark' ? 'text-zinc-500' : 'text-gray-500'}`}>
-                {subjects.find((s) => s.id === selectedSubject)?.name}
-              </p>
             </div>
 
             {/* Scrollable Outline */}
@@ -628,11 +606,10 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                   {/* Section Header */}
                   <button
                     onClick={() => toggleSection(section.id)}
-                    className={`w-full flex items-center gap-2 p-3 rounded-xl text-left transition-colors ${
-                      theme === 'dark'
-                        ? 'hover:bg-zinc-800 text-zinc-200'
-                        : 'hover:bg-gray-100 text-gray-800'
-                    }`}
+                    className={`w-full flex items-center gap-2 p-3 rounded-xl text-left transition-colors ${theme === 'dark'
+                      ? 'hover:bg-zinc-800 text-zinc-200'
+                      : 'hover:bg-gray-100 text-gray-800'
+                      }`}
                   >
                     {section.subsections && (
                       <>
@@ -653,15 +630,14 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                         <button
                           key={topic.id}
                           onClick={() => handleTopicClick(topic)}
-                          className={`w-full flex items-center gap-2 p-2.5 rounded-lg text-left transition-colors ${
-                            selectedTopic?.id === topic.id
-                              ? theme === 'dark'
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : 'bg-emerald-50 text-emerald-600'
-                              : theme === 'dark'
+                          className={`w-full flex items-center gap-2 p-2.5 rounded-lg text-left transition-colors ${selectedTopic?.id === topic.id
+                            ? theme === 'dark'
+                              ? 'bg-emerald-500/20 text-emerald-400'
+                              : 'bg-emerald-50 text-emerald-600'
+                            : theme === 'dark'
                               ? 'hover:bg-zinc-800 text-zinc-400'
                               : 'hover:bg-gray-50 text-gray-600'
-                          }`}
+                            }`}
                         >
                           <div className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />
                           <span className="text-sm">{topic.title}</span>
@@ -683,15 +659,14 @@ export function ResearchHub({ theme }: ResearchHubProps) {
           <div className="absolute top-20 right-4 z-30">
             <button
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
-              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all shadow-lg ${
-                rightPanelOpen
-                  ? theme === 'dark'
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                  : theme === 'dark'
+              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all shadow-lg ${rightPanelOpen
+                ? theme === 'dark'
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                : theme === 'dark'
                   ? 'bg-zinc-900/90 backdrop-blur-sm border border-zinc-800 hover:bg-zinc-800 text-zinc-400'
                   : 'bg-white/90 backdrop-blur-sm border border-gray-200 hover:bg-gray-100 text-gray-600'
-              }`}
+                }`}
             >
               <Sparkles className="w-5 h-5" />
             </button>
@@ -705,30 +680,26 @@ export function ResearchHub({ theme }: ResearchHubProps) {
               /* Welcome View */
               <div className="flex flex-col items-center justify-center min-h-[60vh]">
                 <div
-                  className={`w-24 h-24 rounded-2xl mb-6 flex items-center justify-center ${
-                    theme === 'dark'
-                      ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20'
-                      : 'bg-gradient-to-br from-emerald-100 to-teal-100'
-                  }`}
+                  className={`w-24 h-24 rounded-2xl mb-6 flex items-center justify-center ${theme === 'dark'
+                    ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20'
+                    : 'bg-gradient-to-br from-emerald-100 to-teal-100'
+                    }`}
                 >
                   <BookOpen
-                    className={`w-12 h-12 ${
-                      theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
-                    }`}
+                    className={`w-12 h-12 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
+                      }`}
                   />
                 </div>
 
                 <h1
-                  className={`text-3xl mb-3 text-center ${
-                    theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'
-                  }`}
+                  className={`text-3xl mb-3 text-center ${theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'
+                    }`}
                 >
                   Welcome to Chapter Studio
                 </h1>
                 <p
-                  className={`text-center mb-8 max-w-md ${
-                    theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'
-                  }`}
+                  className={`text-center mb-8 max-w-md ${theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'
+                    }`}
                 >
                   Select your subject and chapter above, then start to break down the lesson into
                   AI insights and diagrams.
@@ -741,19 +712,17 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                 <div>
                   <button
                     onClick={() => setSelectedTopic(null)}
-                    className={`text-sm mb-3 flex items-center gap-1 ${
-                      theme === 'dark'
-                        ? 'text-zinc-400 hover:text-zinc-300'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
+                    className={`text-sm mb-3 flex items-center gap-1 ${theme === 'dark'
+                      ? 'text-zinc-400 hover:text-zinc-300'
+                      : 'text-gray-600 hover:text-gray-900'
+                      }`}
                   >
                     <ChevronRight className="w-4 h-4 rotate-180" />
                     Back to chat
                   </button>
                   <h1
-                    className={`text-3xl mb-2 ${
-                      theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'
-                    }`}
+                    className={`text-3xl mb-2 ${theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'
+                      }`}
                   >
                     {selectedTopic.title}
                   </h1>
@@ -761,17 +730,15 @@ export function ResearchHub({ theme }: ResearchHubProps) {
 
                 {/* Key Insights */}
                 <div
-                  className={`rounded-xl p-6 ${
-                    theme === 'dark'
-                      ? 'bg-zinc-900 border border-zinc-800'
-                      : 'bg-white border border-gray-200'
-                  }`}
+                  className={`rounded-xl p-6 ${theme === 'dark'
+                    ? 'bg-zinc-900 border border-zinc-800'
+                    : 'bg-white border border-gray-200'
+                    }`}
                 >
                   <div className="flex items-center gap-2 mb-4">
                     <Lightbulb
-                      className={`w-5 h-5 ${
-                        theme === 'dark' ? 'text-amber-400' : 'text-amber-600'
-                      }`}
+                      className={`w-5 h-5 ${theme === 'dark' ? 'text-amber-400' : 'text-amber-600'
+                        }`}
                     />
                     <h3 className={theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'}>
                       Key Insights
@@ -781,14 +748,12 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                     {selectedTopic.keyInsights?.map((insight, index) => (
                       <li
                         key={index}
-                        className={`flex gap-3 text-sm ${
-                          theme === 'dark' ? 'text-zinc-300' : 'text-gray-700'
-                        }`}
+                        className={`flex gap-3 text-sm ${theme === 'dark' ? 'text-zinc-300' : 'text-gray-700'
+                          }`}
                       >
                         <span
-                          className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                            theme === 'dark' ? 'bg-emerald-500' : 'bg-emerald-600'
-                          }`}
+                          className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${theme === 'dark' ? 'bg-emerald-500' : 'bg-emerald-600'
+                            }`}
                         />
                         <span>{insight}</span>
                       </li>
@@ -799,30 +764,26 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                 {/* Remember This */}
                 {selectedTopic.rememberThis && (
                   <div
-                    className={`rounded-xl p-6 ${
-                      theme === 'dark'
-                        ? 'bg-emerald-500/10 border border-emerald-500/30'
-                        : 'bg-emerald-50 border border-emerald-200'
-                    }`}
+                    className={`rounded-xl p-6 ${theme === 'dark'
+                      ? 'bg-emerald-500/10 border border-emerald-500/30'
+                      : 'bg-emerald-50 border border-emerald-200'
+                      }`}
                   >
                     <div className="flex items-start gap-3">
                       <Sparkles
-                        className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                          theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
-                        }`}
+                        className={`w-5 h-5 flex-shrink-0 mt-0.5 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
+                          }`}
                       />
                       <div>
                         <h4
-                          className={`text-sm mb-2 ${
-                            theme === 'dark' ? 'text-emerald-400' : 'text-emerald-700'
-                          }`}
+                          className={`text-sm mb-2 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-700'
+                            }`}
                         >
                           Remember This
                         </h4>
                         <p
-                          className={`text-sm ${
-                            theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'
-                          }`}
+                          className={`text-sm ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'
+                            }`}
                         >
                           {selectedTopic.rememberThis}
                         </p>
@@ -834,11 +795,10 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                 {/* Definitions */}
                 {selectedTopic.definitions && selectedTopic.definitions.length > 0 && (
                   <div
-                    className={`rounded-xl p-6 ${
-                      theme === 'dark'
-                        ? 'bg-zinc-900 border border-zinc-800'
-                        : 'bg-white border border-gray-200'
-                    }`}
+                    className={`rounded-xl p-6 ${theme === 'dark'
+                      ? 'bg-zinc-900 border border-zinc-800'
+                      : 'bg-white border border-gray-200'
+                      }`}
                   >
                     <h3
                       className={`mb-4 ${theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'}`}
@@ -849,9 +809,8 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                       {selectedTopic.definitions.map((def, index) => (
                         <div
                           key={index}
-                          className={`p-3 rounded-lg text-sm ${
-                            theme === 'dark' ? 'bg-zinc-800' : 'bg-gray-50'
-                          }`}
+                          className={`p-3 rounded-lg text-sm ${theme === 'dark' ? 'bg-zinc-800' : 'bg-gray-50'
+                            }`}
                         >
                           <p className={theme === 'dark' ? 'text-zinc-300' : 'text-gray-700'}>
                             {def}
@@ -867,15 +826,14 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                   <button
                     onClick={handleSaveTopic}
                     disabled={savedTopics.some((t) => t.id === selectedTopic.id)}
-                    className={`py-2.5 px-6 rounded-lg text-sm transition-colors flex items-center gap-2 ${
-                      savedTopics.some((t) => t.id === selectedTopic.id)
-                        ? theme === 'dark'
-                          ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
-                          : 'bg-emerald-50 text-emerald-600 cursor-default'
-                        : theme === 'dark'
+                    className={`py-2.5 px-6 rounded-lg text-sm transition-colors flex items-center gap-2 ${savedTopics.some((t) => t.id === selectedTopic.id)
+                      ? theme === 'dark'
+                        ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
+                        : 'bg-emerald-50 text-emerald-600 cursor-default'
+                      : theme === 'dark'
                         ? 'bg-emerald-600 text-white hover:bg-emerald-500'
                         : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    }`}
+                      }`}
                   >
                     {savedTopics.some((t) => t.id === selectedTopic.id) ? (
                       <>
@@ -900,15 +858,14 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-2xl px-5 py-3 ${
-                        message.role === 'user'
-                          ? theme === 'dark'
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-emerald-600 text-white'
-                          : theme === 'dark'
+                      className={`max-w-[85%] rounded-2xl px-5 py-3 ${message.role === 'user'
+                        ? theme === 'dark'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-600 text-white'
+                        : theme === 'dark'
                           ? 'bg-zinc-800/60 border border-zinc-700/50 text-zinc-100'
                           : 'bg-white border border-gray-200 text-gray-900'
-                      }`}
+                        }`}
                       style={{
                         boxShadow:
                           message.role === 'assistant'
@@ -933,20 +890,17 @@ export function ResearchHub({ theme }: ResearchHubProps) {
       {/* Right Panel - Diagram View */}
       {sessionActive && selectedTopic && (
         <div
-          className={`absolute top-[73px] right-0 bottom-0 w-96 z-40 transition-all duration-500 ease-out ${
-            rightPanelOpen ? 'translate-x-0' : 'translate-x-full'
-          } ${
-            theme === 'dark'
+          className={`absolute top-[73px] right-0 bottom-0 w-96 z-40 transition-all duration-500 ease-out ${rightPanelOpen ? 'translate-x-0' : 'translate-x-full'
+            } ${theme === 'dark'
               ? 'bg-zinc-900 border-l border-zinc-800'
               : 'bg-white border-l border-gray-200'
-          }`}
+            }`}
         >
           <div className="flex flex-col h-full">
             {/* Header */}
             <div
-              className={`flex items-center justify-between p-4 border-b ${
-                theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'
-              }`}
+              className={`flex items-center justify-between p-4 border-b ${theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'
+                }`}
             >
               <div className="flex items-center gap-2">
                 <Sparkles
@@ -958,9 +912,8 @@ export function ResearchHub({ theme }: ResearchHubProps) {
               </div>
               <button
                 onClick={() => setRightPanelOpen(false)}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
-                }`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+                  }`}
               >
                 <X className={`w-4 h-4 ${theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'}`} />
               </button>
@@ -977,11 +930,10 @@ export function ResearchHub({ theme }: ResearchHubProps) {
 
               {/* Diagram Container */}
               <div
-                className={`aspect-square rounded-xl mb-6 flex items-center justify-center cursor-pointer transition-all hover:scale-[1.02] ${
-                  theme === 'dark'
-                    ? 'bg-zinc-800 border border-zinc-700 hover:border-zinc-600'
-                    : 'bg-gray-50 border border-gray-200 hover:border-gray-300'
-                }`}
+                className={`aspect-square rounded-xl mb-6 flex items-center justify-center cursor-pointer transition-all hover:scale-[1.02] ${theme === 'dark'
+                  ? 'bg-zinc-800 border border-zinc-700 hover:border-zinc-600'
+                  : 'bg-gray-50 border border-gray-200 hover:border-gray-300'
+                  }`}
                 onClick={() => setDiagramFullScreen(true)}
               >
                 <div className="text-center p-8">
@@ -990,9 +942,8 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                     AI-generated diagram
                   </p>
                   <p
-                    className={`text-xs mt-2 ${
-                      theme === 'dark' ? 'text-zinc-500' : 'text-gray-500'
-                    }`}
+                    className={`text-xs mt-2 ${theme === 'dark' ? 'text-zinc-500' : 'text-gray-500'
+                      }`}
                   >
                     Click to view full screen
                   </p>
@@ -1002,22 +953,20 @@ export function ResearchHub({ theme }: ResearchHubProps) {
               {/* Action Buttons */}
               <div className="space-y-3">
                 <button
-                  className={`w-full py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${
-                    theme === 'dark'
-                      ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`w-full py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${theme === 'dark'
+                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   <RotateCw className="w-4 h-4" />
                   Regenerate Diagram
                 </button>
 
                 <button
-                  className={`w-full py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${
-                    theme === 'dark'
-                      ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`w-full py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${theme === 'dark'
+                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   <Download className="w-4 h-4" />
                   Download PNG
@@ -1025,22 +974,20 @@ export function ResearchHub({ theme }: ResearchHubProps) {
 
                 <button
                   onClick={() => setDiagramFullScreen(true)}
-                  className={`w-full py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${
-                    theme === 'dark'
-                      ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`w-full py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${theme === 'dark'
+                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   <Maximize2 className="w-4 h-4" />
                   View Full Screen
                 </button>
 
                 <button
-                  className={`w-full py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${
-                    theme === 'dark'
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                  }`}
+                  className={`w-full py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${theme === 'dark'
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    }`}
                 >
                   <Share2 className="w-4 h-4" />
                   Add to SharePoint
@@ -1101,16 +1048,14 @@ export function ResearchHub({ theme }: ResearchHubProps) {
           <div className="w-full max-w-3xl pointer-events-auto">
             {/* Expandable Conversation Panel */}
             <div
-              className={`transition-all duration-300 ease-out overflow-hidden ${
-                conversationExpanded && chatMessages.length > 1 ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'
-              }`}
+              className={`transition-all duration-300 ease-out overflow-hidden ${conversationExpanded && chatMessages.length > 1 ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'
+                }`}
             >
               <div
-                className={`mx-6 mb-3 rounded-2xl overflow-hidden ${
-                  theme === 'dark'
-                    ? 'bg-zinc-900/90 border border-zinc-700/50'
-                    : 'bg-white/90 border border-gray-200/50'
-                }`}
+                className={`mx-6 mb-3 rounded-2xl overflow-hidden ${theme === 'dark'
+                  ? 'bg-zinc-900/90 border border-zinc-700/50'
+                  : 'bg-white/90 border border-gray-200/50'
+                  }`}
                 style={{
                   backdropFilter: 'blur(20px)',
                   boxShadow: theme === 'dark'
@@ -1120,9 +1065,8 @@ export function ResearchHub({ theme }: ResearchHubProps) {
               >
                 {/* Header */}
                 <div
-                  className={`flex items-center justify-between px-4 py-3 border-b ${
-                    theme === 'dark' ? 'border-zinc-700/50' : 'border-gray-200/50'
-                  }`}
+                  className={`flex items-center justify-between px-4 py-3 border-b ${theme === 'dark' ? 'border-zinc-700/50' : 'border-gray-200/50'
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <Sparkles className={`w-4 h-4 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`} />
@@ -1132,9 +1076,8 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                   </div>
                   <button
                     onClick={() => setConversationExpanded(false)}
-                    className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
-                      theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
-                    }`}
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+                      }`}
                   >
                     <X className={`w-4 h-4 ${theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'}`} />
                   </button>
@@ -1148,15 +1091,14 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm ${
-                          message.role === 'user'
-                            ? theme === 'dark'
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-emerald-600 text-white'
-                            : theme === 'dark'
+                        className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm ${message.role === 'user'
+                          ? theme === 'dark'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-emerald-600 text-white'
+                          : theme === 'dark'
                             ? 'bg-zinc-800 text-zinc-200'
                             : 'bg-gray-100 text-gray-800'
-                        }`}
+                          }`}
                       >
                         {message.content}
                       </div>
@@ -1169,11 +1111,10 @@ export function ResearchHub({ theme }: ResearchHubProps) {
             {/* Floating Chat Bar */}
             <div className="px-6 pb-6">
               <div
-                className={`relative rounded-[20px] transition-all duration-200 ${
-                  theme === 'dark'
-                    ? 'bg-zinc-900/80 border border-zinc-700/50'
-                    : 'bg-white/80 border border-gray-200/50'
-                }`}
+                className={`relative rounded-[20px] transition-all duration-200 ${theme === 'dark'
+                  ? 'bg-zinc-900/80 border border-zinc-700/50'
+                  : 'bg-white/80 border border-gray-200/50'
+                  }`}
                 style={{
                   backdropFilter: 'blur(24px)',
                   boxShadow: theme === 'dark'
@@ -1206,11 +1147,10 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                       }
                     }}
                     placeholder="Ask AI anything about this chapter..."
-                    className={`flex-1 bg-transparent border-none outline-none text-sm ${
-                      theme === 'dark'
-                        ? 'text-zinc-100 placeholder-zinc-500'
-                        : 'text-gray-900 placeholder-gray-400'
-                    }`}
+                    className={`flex-1 bg-transparent border-none outline-none text-sm ${theme === 'dark'
+                      ? 'text-zinc-100 placeholder-zinc-500'
+                      : 'text-gray-900 placeholder-gray-400'
+                      }`}
                   />
 
                   {/* Right Side Icons */}
@@ -1218,13 +1158,12 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                     {/* Microphone Button */}
                     <button
                       onClick={() => setVoiceMode(!voiceMode)}
-                      className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                        voiceMode
-                          ? 'bg-emerald-500 text-white'
-                          : theme === 'dark'
+                      className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all ${voiceMode
+                        ? 'bg-emerald-500 text-white'
+                        : theme === 'dark'
                           ? 'hover:bg-zinc-800 text-zinc-400'
                           : 'hover:bg-gray-100 text-gray-600'
-                      }`}
+                        }`}
                     >
                       {/* Pulsing Ring for Active Voice Mode */}
                       {voiceMode && (
@@ -1245,13 +1184,12 @@ export function ResearchHub({ theme }: ResearchHubProps) {
                         }
                       }}
                       disabled={!inputMessage.trim()}
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                        !inputMessage.trim()
-                          ? theme === 'dark'
-                            ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30'
-                      }`}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${!inputMessage.trim()
+                        ? theme === 'dark'
+                          ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30'
+                        }`}
                     >
                       <Send className="w-4 h-4" />
                     </button>
@@ -1270,44 +1208,39 @@ export function ResearchHub({ theme }: ResearchHubProps) {
           style={{ backdropFilter: 'blur(4px)' }}
         >
           <div
-            className={`w-full max-w-md mx-4 rounded-xl p-6 ${
-              theme === 'dark'
-                ? 'bg-zinc-900 border border-zinc-800'
-                : 'bg-white border border-gray-200'
-            }`}
+            className={`w-full max-w-md mx-4 rounded-xl p-6 ${theme === 'dark'
+              ? 'bg-zinc-900 border border-zinc-800'
+              : 'bg-white border border-gray-200'
+              }`}
           >
             <h3
-              className={`text-lg mb-3 ${
-                theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'
-              }`}
+              className={`text-lg mb-3 ${theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'
+                }`}
             >
               Generate Lesson Summary?
             </h3>
             <p
-              className={`text-sm mb-6 ${
-                theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'
-              }`}
+              className={`text-sm mb-6 ${theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'
+                }`}
             >
               Generating this lesson summary will finalize your current session. You won't be able to add more topics after this. Do you want to continue?
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowSummaryModal(false)}
-                className={`px-4 py-2 rounded-lg text-sm transition-all ${
-                  theme === 'dark'
-                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm transition-all ${theme === 'dark'
+                  ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmGenerateSummary}
-                className={`px-4 py-2 rounded-lg text-sm transition-all ${
-                  theme === 'dark'
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm transition-all ${theme === 'dark'
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  }`}
               >
                 Generate Summary
               </button>
@@ -1320,11 +1253,10 @@ export function ResearchHub({ theme }: ResearchHubProps) {
       {showSuccessToast && (
         <div className="fixed bottom-6 right-6 z-[60] animate-in slide-in-from-right-8 fade-in duration-300">
           <div
-            className={`rounded-xl px-4 py-3 shadow-lg flex items-center gap-3 ${
-              theme === 'dark'
-                ? 'bg-zinc-900 border border-zinc-800'
-                : 'bg-white border border-gray-200'
-            }`}
+            className={`rounded-xl px-4 py-3 shadow-lg flex items-center gap-3 ${theme === 'dark'
+              ? 'bg-zinc-900 border border-zinc-800'
+              : 'bg-white border border-gray-200'
+              }`}
             style={{
               minWidth: '320px',
               boxShadow: theme === 'dark'
@@ -1341,6 +1273,13 @@ export function ResearchHub({ theme }: ResearchHubProps) {
           </div>
         </div>
       )}
+      <FileSelectionModal
+        isOpen={showFileModal}
+        onClose={() => setShowFileModal(false)}
+        onFileSelect={handleFileSelect}
+        theme={theme}
+        filterFolder="Lessons"
+      />
     </div>
   );
 }

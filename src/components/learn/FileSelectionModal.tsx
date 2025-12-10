@@ -33,7 +33,7 @@ interface FileSelectionModalProps {
   filterFolder?: string; // Optional: filter to specific folder (e.g., "Lessons")
 }
 
-interface FileItem {
+export interface FileItem {
   id: string;
   name: string;
   type: 'pdf' | 'docx' | 'image' | 'video' | 'ai';
