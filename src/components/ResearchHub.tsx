@@ -427,19 +427,7 @@ export function ResearchHub({ theme }: ResearchHubProps) {
             </div>
           )}
 
-          {/* Open Lesson Button */}
-          {!sessionActive && !selectedFile && (
-            <button
-              onClick={() => setShowFileModal(true)}
-              className={`px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 ${theme === 'dark'
-                ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              Open Lesson
-            </button>
-          )}
+
 
           {/* Start Session Button */}
           {!sessionActive && selectedFile && (
@@ -678,32 +666,65 @@ export function ResearchHub({ theme }: ResearchHubProps) {
           <div className="max-w-3xl mx-auto">
             {!sessionActive ? (
               /* Welcome View */
-              <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                <div
-                  className={`w-24 h-24 rounded-2xl mb-6 flex items-center justify-center ${theme === 'dark'
-                    ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20'
-                    : 'bg-gradient-to-br from-emerald-100 to-teal-100'
-                    }`}
-                >
-                  <BookOpen
-                    className={`w-12 h-12 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
-                      }`}
-                  />
-                </div>
+              /* Welcome View */
+              <div className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden min-h-[60vh]">
+                {/* Background Ambient Glow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-                <h1
-                  className={`text-3xl mb-3 text-center ${theme === 'dark' ? 'text-zinc-100' : 'text-gray-900'
-                    }`}
-                >
-                  Welcome to Chapter Studio
-                </h1>
-                <p
-                  className={`text-center mb-8 max-w-md ${theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'
-                    }`}
-                >
-                  Select your subject and chapter above, then start to break down the lesson into
-                  AI insights and diagrams.
-                </p>
+                {/* Glass Card Container */}
+                <div className={`relative z-10 p-12 rounded-3xl border backdrop-blur-xl flex flex-col items-center max-w-2xl w-full text-center transition-all ${theme === 'dark'
+                  ? 'bg-zinc-900/40 border-white/5 shadow-2xl shadow-black/50'
+                  : 'bg-white/60 border-gray-200/50 shadow-xl shadow-emerald-500/5'
+                  }`}>
+
+                  {/* Pulsing Dhi Orb */}
+                  <div className="relative mb-8 group cursor-pointer" onClick={() => setShowFileModal(true)}>
+                    <div className={`absolute inset-0 rounded-full blur-xl animate-pulse transition-all duration-1000 ${theme === 'dark' ? 'bg-emerald-500/30' : 'bg-emerald-400/40'
+                      }`} />
+                    <div className={`relative w-24 h-24 rounded-full flex items-center justify-center border transition-all duration-500 group-hover:scale-105 ${theme === 'dark'
+                      ? 'bg-zinc-900/80 border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)]'
+                      : 'bg-white/80 border-emerald-400/30 shadow-[0_0_30px_-5px_rgba(52,211,153,0.3)]'
+                      }`}>
+                      <div className="absolute inset-0 rounded-full border border-emerald-500/20 animate-[spin_8s_linear_infinite]" />
+                      <Sparkles className={`w-10 h-10 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-500'}`} />
+                    </div>
+                  </div>
+
+                  {/* Typography */}
+                  <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+                    <span className={`bg-clip-text text-transparent bg-gradient-to-r ${theme === 'dark'
+                      ? 'from-white via-emerald-200 to-emerald-400'
+                      : 'from-gray-900 via-emerald-800 to-emerald-600'
+                      }`}>
+                      Dhi Studio
+                    </span>
+                  </h1>
+
+                  <p className={`text-lg mb-8 max-w-md font-light leading-relaxed ${theme === 'dark' ? 'text-zinc-400' : 'text-gray-600'
+                    }`}>
+                    Initialize your learning session. Upload a lesson to begin neural analysis.
+                  </p>
+
+                  {/* Action Area */}
+                  <button
+                    onClick={() => setShowFileModal(true)}
+                    className={`group relative px-8 py-4 rounded-xl font-medium transition-all duration-300 transform hover:-translate-y-0.5 ${theme === 'dark'
+                      ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40'
+                      : 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40'
+                      }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <BookOpen className="w-5 h-5" />
+                      <span>Open Lesson Material</span>
+                      <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                    </span>
+                  </button>
+
+                  <div className={`mt-6 text-xs uppercase tracking-widest font-semibold opacity-40 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
+                    }`}>
+                    AI-Powered Curriculum Analysis
+                  </div>
+                </div>
               </div>
             ) : selectedTopic ? (
               /* Topic Summary View */
